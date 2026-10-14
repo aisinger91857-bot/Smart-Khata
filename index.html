@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Khata</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;font-family:Arial,sans-serif;
+  background:#f1f5f9;color:#172033
+}
+header{
+  background:#075cf5;color:white;
+  padding:20px;text-align:center
+}
+.container{max-width:600px;margin:20px auto;padding:12px}
+.card{
+  background:white;padding:18px;margin-bottom:15px;
+  border-radius:14px;box-shadow:0 3px 12px #0001
+}
+input,button,select{
+  width:100%;padding:12px;margin:7px 0;
+  border-radius:8px;font-size:16px
+}
+input,select{border:1px solid #cbd5e1}
+button{
+  border:0;background:#075cf5;color:white;
+  font-weight:bold;cursor:pointer
+}
+.green{background:#07854b}
+.red{background:#dc3545}
+.hidden{display:none}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:#eaf1ff;padding:14px;border-radius:10px}
+small{color:#64748b}
+.entry{
+  padding:12px 0;border-bottom:1px solid #ddd;
+  overflow-wrap:anywhere
+}
+</style>
+</head>
+
+<body>
+<header>
+  <h1>💰 Smart Khata</h1>
+  <p>Apne paison ka hisaab rakhein</p>
+</header>
+
+<div class="container">
+
+  <section id="auth">
+    <div class="card">
+      <h2 id="authTitle">Login</h2>
+      <input id="name" placeholder="Aapka naam (Signup ke liye)">
+      <input id="email" type="text" placeholder="Username">
+      <input id="password" type="password" placeholder="Password">
+      <button onclick="signup()" id="signupBtn" class="hidden">Signup Karein</button>
+      <button onclick="login()" id="loginBtn">Login Karein</button>
+      <button onclick="toggleAuth()" class="green" id="switchBtn">Naya account banayein</button>
+      <p><small>Demo account isi browser mein save hota hai.</small></p>
+    </div>
+  </section>
+
+  <section id="dashboard" class="hidden">
+    <div class="card">
+      <h2>Namaste, <span id="welcome"></span> 👋</h2>
+      <p>Welcome to Smart Khata</p>
+      <button onclick="logout()" class="red">Logout</button>
+    </div>
+
+    <div class="card">
+      <h3>📊 Aapka Hisaab</h3>
+      <div class="stats">
+        <div class="stat">
+          <small>Total Income</small>
+          <h3 id="incomeTotal">₹0</h3>
+        </div>
+        <div class="stat">
+          <small>Total Expense</small>
+          <h3 id="expenseTotal">₹0</h3>
+        </div>
+      </div>
+      <div class="stat" style="margin-top:10px">
+        <small>Available Balance</small>
+        <h2 id="balance">₹0</h2>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>➕ Naya Transaction</h3>
+      <select id="type">
+        <option value="income">Income (Paise aaye)</option>
+        <option value="expense">Expense (Paise kharch)</option>
+      </select>
+      <input id="amount" type="number" min="0.01" step="0.01" placeholder="Amount ₹">
+      <input id="note" placeholder="Details (Jaise Salary, Food)">
+      <button onclick="addTransaction()">Save Transaction</button>
+    </div>
+
+    <div class="card">
+      <h3>📒 Transaction History</h3>
+      <div id="history">Abhi koi transaction nahi hai.</div>
+      <button onclick="clearHistory()" class="red">Saara Hisaab Delete Karein</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+let isSignup = false;
+let currentUser = localStorage.getItem("sk_currentUser") || "";
+
+function getUsers(){
+  try {
+    return JSON.parse(localStorage.getItem("sk_users") || "{}");
+  } catch(e) {
+    return {};
+  }
+}
+
+function saveUsers(users){
+  localStorage.setItem("sk_users", JSON.stringify(users));
+}
+
+function toggleAuth(){
+  isSignup = !isSignup;
+  document.getElementById("authTitle").textContent =
+    isSignup ? "Create Account" : "Login";
+  document.getElementById("name").classList.toggle("hidden", !isSignup);
+  document.getElementById("signupBtn").classList.toggle("hidden", !isSignup);
+  document.getElementById("loginBtn").classList.toggle("hidden", isSignup);
+  document.getElementById("switchBtn").textContent =
+    isSignup ? "Pehle se account hai? Login" : "Naya account banayein";
+}
+
+function signup(){
+  const name = document.getElementById("name").value.trim();
+  const user = document.getElementById("email").value.trim();
+  const pass = document.getElementById("password").value;
+
+  if(!name || !user || !pass){
+    alert("Saari details bharein.");
+    return;
+  }
+
+  const users = getUsers();
+  if(users[user]){
+    alert("Yeh username pehle se maujood hai.");
+    return;
+  }
+
+  users[user] = {
+    name:name,
+    password:pass,
+    transactions:[]
+  };
+
+  saveUsers(users);
+  currentUser = user;
+  localStorage.setItem("sk_currentUser", user);
+  showDashboard();
+}
+
+function login(){
+  const user = document.getElementById("email").value.trim();
+  const pass = document.getElementById("password").value;
+  const users = getUsers();
+
+  if(users[user] && users[user].password === pass){
+    currentUser = user;
+    localStorage.setItem("sk_currentUser", user);
+    showDashboard();
+  } else {
+    alert("Username ya password galat hai. Pehle Signup karein.");
+  }
+}
+
+function showDashboard(){
+  const users = getUsers();
+
+  if(!users[currentUser]){
+    logout();
+    return;
+  }
+
+  document.getElementById("auth").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+  document.getElementById("welcome").textContent =
+    users[currentUser].name;
+
+  renderTransactions();
+}
+
+function logout(){
+  currentUser = "";
+  localStorage.removeItem("sk_currentUser");
+  document.getElementById("dashboard").classList.add("hidden");
+  document.getElementById("auth").classList.remove("hidden");
+}
+
+function addTransaction(){
+  const amount = Number(document.getElementById("amount").value);
+  const note = document.getElementById("note").value.trim();
+  const type = document.getElementById("type").value;
+
+  if(!Number.isFinite(amount) || amount <= 0){
+    alert("Sahi amount dalein.");
+    return;
+  }
+
+  const users = getUsers();
+  const account = users[currentUser];
+
+  if(!account) return;
+
+  account.transactions.push({
+    amount:amount,
+    note:note || (type === "income" ? "Income" : "Expense"),
+    type:type,
+    date:new Date().toLocaleDateString("en-IN")
+  });
+
+  saveUsers(users);
+  document.getElementById("amount").value = "";
+  document.getElementById("note").value = "";
+  renderTransactions();
+}
+
+function renderTransactions(){
+  const users = getUsers();
+  const account = users[currentUser];
+  if(!account) return;
+
+  let income = 0;
+  let expense = 0;
+
+  const history = document.getElementById("history");
+  history.replaceChildren();
+
+  if(account.transactions.length === 0){
+    history.textContent = "Abhi koi transaction nahi hai.";
+  }
+
+  [...account.transactions].reverse().forEach(t => {
+    if(t.type === "income") income += t.amount;
+    else expense += t.amount;
+
+    const item = document.createElement("div");
+    item.className = "entry";
+
+    const title = document.createElement("strong");
+    title.textContent = t.note + " — " +
+      (t.type === "income" ? "+" : "-") +
+      "₹" + t.amount.toFixed(2);
+    title.style.color = t.type === "income" ? "#07854b" : "#dc3545";
+
+    const date = document.createElement("div");
+    const small = document.createElement("small");
+    small.textContent = t.date + " | " +
+      (t.type === "income" ? "Income" : "Expense");
+    date.appendChild(small);
+
+    item.appendChild(title);
+    item.appendChild(date);
+    history.appendChild(item);
+  });
+
+  document.getElementById("incomeTotal").textContent = "₹" + income.toFixed(2);
+  document.getElementById("expenseTotal").textContent = "₹" + expense.toFixed(2);
+  document.getElementById("balance").textContent = "₹" + (income-expense).toFixed(2);
+}
+
+function clearHistory(){
+  if(!confirm("Kya aap sach mein saara hisaab delete karna chahte hain?")) return;
+
+  const users = getUsers();
+  if(!users[currentUser]) return;
+
+  users[currentUser].transactions = [];
+  saveUsers(users);
+  renderTransactions();
+}
+
+if(currentUser && getUsers()[currentUser]){
+  showDashboard();
+}
+</script>
+</body>
+  </html>
